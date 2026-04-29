@@ -878,10 +878,7 @@ mod propchain_insurance {
 
         /// Deactivate a reinsurance agreement (admin only)
         #[ink(message)]
-        pub fn deactivate_reinsurance(
-            &mut self,
-            agreement_id: u64,
-        ) -> Result<(), InsuranceError> {
+        pub fn deactivate_reinsurance(&mut self, agreement_id: u64) -> Result<(), InsuranceError> {
             self.ensure_admin()?;
             let mut agreement = self
                 .reinsurance_agreements
@@ -929,9 +926,7 @@ mod propchain_insurance {
             let ceded_amount = match agreement.treaty_type {
                 ReinsuranceTreatyType::QuotaShare => {
                     // Fixed % of every premium
-                    gross_premium
-                        .saturating_mul(agreement.premium_ceded_rate as u128)
-                        / 10_000
+                    gross_premium.saturating_mul(agreement.premium_ceded_rate as u128) / 10_000
                 }
                 ReinsuranceTreatyType::Surplus => {
                     // Cede the portion above the retention limit
@@ -945,9 +940,7 @@ mod propchain_insurance {
                 }
                 ReinsuranceTreatyType::ExcessOfLoss => {
                     // Premium cession for XL is typically a flat rate
-                    gross_premium
-                        .saturating_mul(agreement.premium_ceded_rate as u128)
-                        / 10_000
+                    gross_premium.saturating_mul(agreement.premium_ceded_rate as u128) / 10_000
                 }
             };
 
@@ -1034,9 +1027,7 @@ mod propchain_insurance {
                 }
                 ReinsuranceTreatyType::QuotaShare => {
                     // Reinsurer pays their quota share of the loss
-                    gross_loss
-                        .saturating_mul(agreement.premium_ceded_rate as u128)
-                        / 10_000
+                    gross_loss.saturating_mul(agreement.premium_ceded_rate as u128) / 10_000
                 }
                 ReinsuranceTreatyType::Surplus => {
                     // Recover the surplus portion
@@ -1080,8 +1071,7 @@ mod propchain_insurance {
                 .get(&agreement_id)
                 .unwrap_or_default();
             recoveries.push(recovery_id);
-            self.agreement_recoveries
-                .insert(&agreement_id, &recoveries);
+            self.agreement_recoveries.insert(&agreement_id, &recoveries);
 
             self.env().emit_event(LossRecovered {
                 agreement_id,
@@ -1623,9 +1613,9 @@ mod propchain_insurance {
                                 0
                             }
                         }
-                        ReinsuranceTreatyType::QuotaShare => amount
-                            .saturating_mul(agreement.premium_ceded_rate as u128)
-                            / 10_000,
+                        ReinsuranceTreatyType::QuotaShare => {
+                            amount.saturating_mul(agreement.premium_ceded_rate as u128) / 10_000
+                        }
                         ReinsuranceTreatyType::Surplus => {
                             if amount > agreement.retention_limit {
                                 amount
@@ -1652,8 +1642,7 @@ mod propchain_insurance {
                         };
                         self.loss_recoveries.insert(&recovery_id, &loss_recovery);
 
-                        let mut recoveries =
-                            self.agreement_recoveries.get(&i).unwrap_or_default();
+                        let mut recoveries = self.agreement_recoveries.get(&i).unwrap_or_default();
                         recoveries.push(recovery_id);
                         self.agreement_recoveries.insert(&i, &recoveries);
 

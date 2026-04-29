@@ -1590,10 +1590,7 @@ pub mod propchain_contracts {
                 .unwrap_or_default()
         }
 
-        fn ensure_dependency_available(
-            &self,
-            dependency: ExternalDependency,
-        ) -> Result<(), Error> {
+        fn ensure_dependency_available(&self, dependency: ExternalDependency) -> Result<(), Error> {
             let state = self.circuit_state(dependency);
             if let Some(open_until) = state.open_until {
                 if self.env().block_timestamp() < open_until {
@@ -3294,7 +3291,8 @@ pub mod propchain_contracts {
                 total_properties: cached.property_count,
                 total_valuation: cached.total_valuation,
                 average_valuation: if cached.property_count > 0 {
-                    cached.total_valuation
+                    cached
+                        .total_valuation
                         .checked_div(cached.property_count as u128)
                         .unwrap_or(0)
                 } else {
@@ -3302,7 +3300,10 @@ pub mod propchain_contracts {
                 },
                 total_size: cached.total_size,
                 average_size: if cached.property_count > 0 {
-                    cached.total_size.checked_div(cached.property_count).unwrap_or(0)
+                    cached
+                        .total_size
+                        .checked_div(cached.property_count)
+                        .unwrap_or(0)
                 } else {
                     0
                 },

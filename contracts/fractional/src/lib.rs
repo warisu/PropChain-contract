@@ -298,43 +298,20 @@ mod fractional {
             self.balances.get(&(owner, token_id)).unwrap_or(0)
         }
 
-        /// Read-only dashboard view of an owner's fractional holdings.
+        /// Consolidate an owner's share balance for a token into the canonical balance slot.
         #[ink(message)]
-        pub fn get_fractional_dashboard(
-            &self,
+        pub fn consolidate_shares(
+            &mut self,
             owner: AccountId,
-            token_ids: Vec<u64>,
-        ) -> FractionalDashboard {
-            let mut total_value = 0;
-            let mut positions = Vec::new();
-
-            for token_id in token_ids {
-                let shares = self.balances.get(&(owner, token_id)).unwrap_or(0);
-                if shares == 0 {
-                    continue;
-                }
-
-                let price_per_share = self.last_prices.get(token_id).unwrap_or(0);
-                total_value =
-                    total_value.saturating_add(shares.saturating_mul(price_per_share));
-                positions.push(PortfolioItem {
-                    token_id,
-                    shares,
-                    price_per_share,
-                });
+            token_id: u64,
+        ) -> Result<u128, FractionalError> {
+            let shares = self.balances.get(&(owner, token_id)).unwrap_or(0);
+            if shares == 0 {
+                return Err(FractionalError::InsufficientShares);
             }
 
-            FractionalDashboard {
-                owner,
-                total_value,
-                positions,
-            }
-        }
-
-        /// Returns total issued shares for a token.
-        #[ink(message)]
-        pub fn total_shares_of(&self, token_id: u64) -> u128 {
-            self.total_shares.get(token_id).unwrap_or(0)
+            self.balances.insert(&(owner, token_id), &shares);
+            Ok(shares)
         }
 
         /// List shares for sale at a given price per share.

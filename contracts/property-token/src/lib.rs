@@ -92,7 +92,6 @@ pub mod property_token {
         /// On-chain management agent per property token (tokenized property)
         management_agent: Mapping<TokenId, AccountId>,
 
-
         // KYC-based transfer restriction fields
         /// Transfer restriction configuration per token
         transfer_restrictions: Mapping<TokenId, TransferRestrictionConfig>,
@@ -440,7 +439,6 @@ pub mod property_token {
         pub token_id: TokenId,
     }
 
-
     // --- KYC Transfer Restriction Events ---
     #[ink(event)]
     pub struct TransferRestrictionConfigured {
@@ -557,7 +555,6 @@ pub mod property_token {
         #[ink(topic)]
         pub account: AccountId,
         pub amount: u128,
-
     }
 
     // --- Supply Management Events ---
@@ -682,8 +679,6 @@ pub mod property_token {
             }
         }
 
-
-
         /// ERC-721: Returns the balance of tokens owned by an account
         #[ink(message)]
         pub fn balance_of(&self, owner: AccountId) -> u32 {
@@ -741,8 +736,6 @@ pub mod property_token {
             {
                 return Err(Error::Unauthorized);
             }
-
-
 
             // Perform the transfer
             self.remove_token_from_owner(from, token_id)?;
@@ -880,7 +873,6 @@ pub mod property_token {
             if ids.len() != amounts.len() {
                 return Err(Error::LengthMismatch);
             }
-
 
             // Verify KYC transfer restrictions for all tokens
             for i in 0..ids.len() {
@@ -1157,9 +1149,13 @@ pub mod property_token {
             token_id: TokenId,
             account: AccountId,
         ) -> Option<(u128, u32, u32)> {
-            self.user_transfer_quotas
-                .get((token_id, account))
-                .map(|q| (q.amount_transferred, q.period_start_block, q.acquisition_block))
+            self.user_transfer_quotas.get((token_id, account)).map(|q| {
+                (
+                    q.amount_transferred,
+                    q.period_start_block,
+                    q.acquisition_block,
+                )
+            })
         }
 
         /// Sets transfer restrictions for a specific token
@@ -1204,7 +1200,9 @@ pub mod property_token {
             let restriction_level_str = match restriction_level {
                 TransferRestrictionLevel::None => "None".to_string(),
                 TransferRestrictionLevel::KYCRequired => "KYCRequired".to_string(),
-                TransferRestrictionLevel::VerificationLevelRequired => "VerificationLevelRequired".to_string(),
+                TransferRestrictionLevel::VerificationLevelRequired => {
+                    "VerificationLevelRequired".to_string()
+                }
                 TransferRestrictionLevel::WhitelistOnly => "WhitelistOnly".to_string(),
                 TransferRestrictionLevel::BlacklistBased => "BlacklistBased".to_string(),
             };
@@ -1232,7 +1230,15 @@ pub mod property_token {
         pub fn get_transfer_restriction_config(
             &self,
             token_id: TokenId,
-        ) -> Option<(TransferRestrictionLevel, KYCVerificationLevel, u128, u32, u32, bool, u8)> {
+        ) -> Option<(
+            TransferRestrictionLevel,
+            KYCVerificationLevel,
+            u128,
+            u32,
+            u32,
+            bool,
+            u8,
+        )> {
             self.transfer_restrictions.get(token_id).map(|config| {
                 (
                     config.restriction_level,
@@ -1259,7 +1265,8 @@ pub mod property_token {
 
             self.transfer_restrictions.remove(token_id);
 
-            self.env().emit_event(TransferRestrictionRemoved { token_id });
+            self.env()
+                .emit_event(TransferRestrictionRemoved { token_id });
 
             Ok(())
         }
@@ -1429,11 +1436,14 @@ pub mod property_token {
                 }
 
                 // Update user transfer quota tracking
-                let mut quota = self.user_transfer_quotas.get((token_id, from)).unwrap_or(UserTransferQuota {
-                    amount_transferred: 0,
-                    period_start_block: self.env().block_number(),
-                    acquisition_block: self.env().block_number(),
-                });
+                let mut quota =
+                    self.user_transfer_quotas
+                        .get((token_id, from))
+                        .unwrap_or(UserTransferQuota {
+                            amount_transferred: 0,
+                            period_start_block: self.env().block_number(),
+                            acquisition_block: self.env().block_number(),
+                        });
 
                 quota.amount_transferred = quota.amount_transferred.saturating_add(amount);
                 self.user_transfer_quotas.insert((token_id, from), &quota);
@@ -1959,8 +1969,12 @@ pub mod property_token {
             }
 
             // Get verification levels for logging
-            let from_level = self.get_kyc_verification_level(from).unwrap_or(KYCVerificationLevel::None);
-            let to_level = self.get_kyc_verification_level(to).unwrap_or(KYCVerificationLevel::None);
+            let from_level = self
+                .get_kyc_verification_level(from)
+                .unwrap_or(KYCVerificationLevel::None);
+            let to_level = self
+                .get_kyc_verification_level(to)
+                .unwrap_or(KYCVerificationLevel::None);
 
             // Get transfer restrictions for this token
             if let Some(config) = self.transfer_restrictions.get(token_id) {
@@ -2062,7 +2076,8 @@ pub mod property_token {
                 from_verification_level: from_level,
                 to_verification_level: to_level,
             };
-            self.kyc_transfer_log.insert(self.kyc_transfer_log_counter, &log_entry);
+            self.kyc_transfer_log
+                .insert(self.kyc_transfer_log_counter, &log_entry);
             self.kyc_transfer_log_counter = self.kyc_transfer_log_counter.saturating_add(1);
 
             Ok(())
@@ -2087,7 +2102,7 @@ pub mod property_token {
                 use ink::env::call::FromAccountId;
                 let checker: ink::contract_ref!(propchain_traits::ComplianceChecker) =
                     FromAccountId::from_account_id(registry);
-                
+
                 // If compliant, assume Standard level; otherwise Basic
                 if checker.is_compliant(*account) {
                     KYCVerificationLevel::Standard
@@ -2114,7 +2129,7 @@ pub mod property_token {
                 use ink::env::call::FromAccountId;
                 let checker: ink::contract_ref!(propchain_traits::ComplianceChecker) =
                     FromAccountId::from_account_id(registry);
-                
+
                 if !checker.is_compliant(*from) {
                     return Err(Error::HighRiskAccount);
                 }
@@ -2122,7 +2137,7 @@ pub mod property_token {
                     return Err(Error::HighRiskAccount);
                 }
             }
-            
+
             Ok(())
         }
 
@@ -2203,7 +2218,9 @@ pub mod property_token {
             };
 
             // Check if period has expired and reset if needed
-            if current_block.saturating_sub(from_quota.period_start_block as u64) >= config.quota_period as u64 {
+            if current_block.saturating_sub(from_quota.period_start_block as u64)
+                >= config.quota_period as u64
+            {
                 from_quota.amount_transferred = 0;
                 from_quota.period_start_block = current_block as u32;
             }
@@ -3735,5 +3752,4 @@ pub mod property_token {
             }
         }
     }
-
 }

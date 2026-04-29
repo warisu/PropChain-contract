@@ -4735,9 +4735,12 @@ mod tests_pause {
         contract
             .reset_external_dependency_breaker(ExternalDependency::Oracle)
             .expect("admin should be able to reset breaker");
-        assert_ne!(
-            contract.update_valuation_from_oracle(property_id),
-            Err(Error::ExternalDependencyUnavailable)
+        
+        // After reset, the dependency should be available. We avoid calling `update_valuation_from_oracle`
+        // here because off-chain testing environment does not support actual cross-contract invocations and panics.
+        assert_eq!(
+            contract.ensure_dependency_available(ExternalDependency::Oracle),
+            Ok(())
         );
     }
 

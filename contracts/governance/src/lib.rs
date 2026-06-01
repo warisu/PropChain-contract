@@ -99,6 +99,43 @@ mod governance {
         pub admin: AccountId,
     }
 
+    /// Emitted when auto-execute is toggled for a proposal.
+    #[ink(event)]
+    pub struct AutoExecuteToggled {
+        #[ink(topic)]
+        pub proposal_id: u64,
+        pub auto_execute: bool,
+        pub toggled_by: AccountId,
+    }
+
+    /// Emitted when a proposal is automatically executed.
+    #[ink(event)]
+    pub struct AutoExecuted {
+        #[ink(topic)]
+        pub proposal_id: u64,
+        pub executed_at: u64,
+    }
+
+    /// Emitted when a proposal template is created.
+    #[ink(event)]
+    pub struct TemplateCreated {
+        #[ink(topic)]
+        pub template_id: u64,
+        pub name: String,
+        pub action_type: GovernanceAction,
+        pub created_by: AccountId,
+    }
+
+    /// Emitted when a proposal is created from a template.
+    #[ink(event)]
+    pub struct ProposalFromTemplate {
+        #[ink(topic)]
+        pub proposal_id: u64,
+        #[ink(topic)]
+        pub template_id: u64,
+        pub proposer: AccountId,
+    }
+
     // =========================================================================
     // Storage
     // =========================================================================

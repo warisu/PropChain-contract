@@ -68,6 +68,12 @@ mod propchain_escrow {
         very_large_transfer_threshold: u128,
         /// Tax compliance contract address
         tax_compliance_contract: Option<AccountId>,
+
+        // ── Escrow Analytics (Issue #218) ────────────────────────────────────
+        /// Accumulated analytics data
+        analytics: EscrowAnalytics,
+        /// Tracking participant uniqueness: AccountId -> bool
+        analytics_participants: Mapping<AccountId, bool>,
     }
 
     // Events
@@ -244,6 +250,22 @@ mod propchain_escrow {
                 large_transfer_threshold: 0,
                 very_large_transfer_threshold: 0,
                 tax_compliance_contract,
+                // Analytics defaults (Issue #218)
+                analytics: EscrowAnalytics {
+                    total_created: 0,
+                    total_released: 0,
+                    total_refunded: 0,
+                    total_disputed: 0,
+                    total_active: 0,
+                    total_volume: 0,
+                    total_released_volume: 0,
+                    total_fees_collected: 0,
+                    average_escrow_amount: 0,
+                    average_dispute_resolution_time: 0,
+                    total_disputes_resolved: 0,
+                    unique_participants: 0,
+                },
+                analytics_participants: Mapping::default(),
             }
         }
 
@@ -305,6 +327,19 @@ mod propchain_escrow {
             self.condition_counters.insert(&escrow_id, &0);
             self.audit_logs
                 .insert(&escrow_id, &Vec::<AuditEntry>::new());
+
+            // Track analytics
+            self.analytics.total_created += 1;
+            self.analytics.total_volume = self.analytics.total_volume.saturating_add(amount);
+            self.analytics.total_active += 1;
+            self.analytics.average_escrow_amount = self.analytics.total_volume / self.analytics.total_created as u128;
+            // Track unique participants
+            for participant in &[buyer, seller] {
+                if !self.analytics_participants.get(participant).unwrap_or(false) {
+                    self.analytics_participants.insert(participant, &true);
+                    self.analytics.unique_participants += 1;
+                }
+            }
 
             // Add audit entry
             self.add_audit_entry(
@@ -471,6 +506,11 @@ mod propchain_escrow {
                 updated_escrow.status = EscrowStatus::Released;
                 self.escrows.insert(&escrow_id, &updated_escrow);
 
+                // Track analytics
+                self.analytics.total_released += 1;
+                self.analytics.total_active = self.analytics.total_active.saturating_sub(1);
+                self.analytics.total_released_volume = self.analytics.total_released_volume.saturating_add(escrow.deposited_amount);
+
                 // Add audit entry
                 self.add_audit_entry(
                     escrow_id,
@@ -545,6 +585,10 @@ mod propchain_escrow {
                 let mut updated_escrow = escrow.clone();
                 updated_escrow.status = EscrowStatus::Refunded;
                 self.escrows.insert(&escrow_id, &updated_escrow);
+
+                // Track analytics
+                self.analytics.total_refunded += 1;
+                self.analytics.total_active = self.analytics.total_active.saturating_sub(1);
 
                 // Add audit entry
                 self.add_audit_entry(
@@ -897,6 +941,9 @@ mod propchain_escrow {
 
             self.disputes.insert(&escrow_id, &dispute);
 
+            // Track analytics
+            self.analytics.total_disputed += 1;
+
             // Update escrow status
             let mut updated_escrow = escrow;
             updated_escrow.status = EscrowStatus::Disputed;
@@ -930,6 +977,15 @@ mod propchain_escrow {
             }
 
             let mut dispute = self.disputes.get(&escrow_id).ok_or(Error::EscrowNotFound)?;
+            // Track resolution time in blocks
+            let resolution_time = self.env().block_number().saturating_sub(dispute.raised_at);
+            let total_resolved = self.analytics.total_disputes_resolved;
+            let old_avg = self.analytics.average_dispute_resolution_time;
+            self.analytics.average_dispute_resolution_time =
+                (old_avg.saturating_mul(total_resolved).saturating_add(resolution_time))
+                    / (total_resolved + 1);
+            self.analytics.total_disputes_resolved += 1;
+
             dispute.resolved = true;
             dispute.resolution = Some(resolution.clone());
             self.disputes.insert(&escrow_id, &dispute);
@@ -1517,6 +1573,14 @@ mod propchain_escrow {
         #[ink(message)]
         pub fn get_high_value_threshold(&self) -> u128 {
             self.min_high_value_threshold
+        }
+
+        // ── Analytics Query (Issue #218) ─────────────────────────────────────
+
+        /// Get aggregated escrow analytics data.
+        #[ink(message)]
+        pub fn get_escrow_analytics(&self) -> EscrowAnalytics {
+            self.analytics.clone()
         }
 
         // Helper functions

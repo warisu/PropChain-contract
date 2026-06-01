@@ -772,6 +772,7 @@ mod governance {
             description_hash: Hash,
             target_override: Option<AccountId>,
         ) -> Result<u64, Error> {
+            let caller = self.env().caller();
             let template = self
                 .templates
                 .get(&template_id)
@@ -783,13 +784,19 @@ mod governance {
 
             let target = target_override.or(template.default_target);
 
-            if template.is_emergency {
-                self.create_emergency_proposal(description_hash, template.action_type, target)
+            let proposal_id = if template.is_emergency {
+                self.create_emergency_proposal(description_hash, template.action_type, target)?
             } else {
-                let proposal_id =
-                    self.create_proposal(description_hash, template.action_type, target)?;
-                Ok(proposal_id)
-            }
+                self.create_proposal(description_hash, template.action_type, target)?
+            };
+
+            self.env().emit_event(ProposalFromTemplate {
+                proposal_id,
+                template_id,
+                proposer: caller,
+            });
+
+            Ok(proposal_id)
         }
 
         // ── Delegation Messages (Issue #231) ─────────────────────────────────

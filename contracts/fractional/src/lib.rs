@@ -4,6 +4,7 @@
 mod fractional {
     use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
+    use propchain_traits;
 
     #[derive(
         Debug,
@@ -139,9 +140,12 @@ mod fractional {
         SlippageExceeded,
         InsufficientLiquidity,
         InsufficientLpShares,
-        AuctionNotFound,
-        AuctionAlreadyBid,
-        InvalidAuctionParams,
+        // Admin key rotation (Issue #496)
+        KeyRotationCooldown,
+        KeyRotationExpired,
+        NoPendingRotation,
+        RotationUnauthorized,
+        RequestExpired,
     }
 
     /// Emitted when an owner lists shares for sale
@@ -217,6 +221,7 @@ mod fractional {
         new_spot_price: u128,
     }
 
+
     /// Emitted when a Dutch auction is created
     #[ink(event)]
     pub struct DutchAuctionCreated {
@@ -249,6 +254,32 @@ mod fractional {
         auction_id: u64,
         #[ink(topic)]
         seller: AccountId,
+
+    // ── Admin Key Rotation Events (Issue #496) ────────────────────────────────
+
+    #[ink(event)]
+    pub struct AdminRotationRequested {
+        #[ink(topic)]
+        old_admin: AccountId,
+        #[ink(topic)]
+        new_admin: AccountId,
+        effective_at_block: u32,
+    }
+
+    #[ink(event)]
+    pub struct AdminRotationConfirmed {
+        #[ink(topic)]
+        old_admin: AccountId,
+        #[ink(topic)]
+        new_admin: AccountId,
+    }
+
+    #[ink(event)]
+    pub struct AdminRotationCancelled {
+        #[ink(topic)]
+        old_admin: AccountId,
+        cancelled_by: AccountId,
+
     }
 
     #[ink(storage)]
@@ -264,10 +295,10 @@ mod fractional {
         amm_pools: Mapping<u64, AmmPool>,
         /// LP token balances per (provider, token_id)
         lp_balances: Mapping<(AccountId, u64), u128>,
-        /// Dutch auctions by auction_id
-        dutch_auctions: Mapping<u64, DutchAuction>,
-        /// Counter for Dutch auction IDs
-        auction_counter: u64,
+        /// Contract administrator (Issue #496)
+        admin: AccountId,
+        /// Pending admin key rotation request (Issue #496)
+        pending_admin_rotation: Option<propchain_traits::KeyRotationRequest>,
     }
 
     impl Fractional {
@@ -282,6 +313,8 @@ mod fractional {
                 lp_balances: Mapping::default(),
                 dutch_auctions: Mapping::default(),
                 auction_counter: 0,
+                admin: Self::env().caller(),
+                pending_admin_rotation: None,
             }
         }
     }
@@ -296,6 +329,7 @@ mod fractional {
         #[ink(message)]
         pub fn set_last_price(&mut self, token_id: u64, price_per_share: u128) {
             self.last_prices.insert(token_id, &price_per_share);
+        }            self.last_prices.insert(token_id, &price_per_share);
         }
 
         #[ink(message)]
@@ -439,6 +473,7 @@ mod fractional {
             token_id: u64,
             shares: u128,
         ) -> Result<(), FractionalError> {
+            non_reentrant!(self, {
             if shares == 0 {
                 return Err(FractionalError::ZeroAmount);
             }
@@ -501,6 +536,7 @@ mod fractional {
                 total_price,
             });
             Ok(())
+            })
         }
 
         /// Redeem shares for their proportional value based on the last recorded price.
@@ -511,6 +547,7 @@ mod fractional {
             token_id: u64,
             shares: u128,
         ) -> Result<u128, FractionalError> {
+            non_reentrant!(self, {
             if shares == 0 {
                 return Err(FractionalError::ZeroAmount);
             }
@@ -547,6 +584,7 @@ mod fractional {
                 payout,
             });
             Ok(payout)
+            })
         }
 
         /// Get an active listing
@@ -567,6 +605,7 @@ mod fractional {
             share_amount: u128,
             min_lp_out: u128,
         ) -> Result<u128, FractionalError> {
+            non_reentrant!(self, {
             if share_amount == 0 {
                 return Err(FractionalError::ZeroAmount);
             }
@@ -639,6 +678,7 @@ mod fractional {
                 lp_minted,
             });
             Ok(lp_minted)
+            })
         }
 
         /// Burn `lp_amount` LP tokens and withdraw proportional shares + value.
@@ -650,6 +690,7 @@ mod fractional {
             min_shares_out: u128,
             min_value_out: u128,
         ) -> Result<(u128, u128), FractionalError> {
+            non_reentrant!(self, {
             if lp_amount == 0 {
                 return Err(FractionalError::ZeroAmount);
             }
@@ -710,6 +751,7 @@ mod fractional {
                 lp_burned: lp_amount,
             });
             Ok((shares_out, value_out))
+            })
         }
 
         /// Sell `shares_in` shares into the AMM pool, receiving native value out.
@@ -722,6 +764,7 @@ mod fractional {
             shares_in: u128,
             min_value_out: u128,
         ) -> Result<u128, FractionalError> {
+            non_reentrant!(self, {
             if shares_in == 0 {
                 return Err(FractionalError::ZeroAmount);
             }
@@ -792,6 +835,7 @@ mod fractional {
                 new_spot_price: new_spot,
             });
             Ok(value_out)
+            })
         }
 
         /// Returns the current spot price (value per share) for `token_id`'s AMM pool.
@@ -1026,6 +1070,122 @@ mod fractional {
                 y = (x + n / x) / 2;
             }
             x
+        }
+
+        // ── Admin Key Rotation (Issue #496) ──────────────────────────────────
+
+        /// Get the contract admin address.
+        #[ink(message)]
+        pub fn get_admin(&self) -> AccountId {
+            self.admin
+        }
+
+        /// Initiate two-step admin rotation with timelock cooldown.
+        ///
+        /// Only the current admin may call this. The nominated `new_admin` must
+        /// confirm after `KEY_ROTATION_COOLDOWN_BLOCKS` blocks have elapsed.
+        #[ink(message)]
+        pub fn request_admin_rotation(
+            &mut self,
+            new_admin: AccountId,
+        ) -> Result<(), FractionalError> {
+            let caller = self.env().caller();
+            if caller != self.admin {
+                return Err(FractionalError::Unauthorized);
+            }
+            if self.pending_admin_rotation.is_some() {
+                return Err(FractionalError::KeyRotationCooldown);
+            }
+
+            let block = self.env().block_number();
+            let effective_at = block
+                .saturating_add(propchain_traits::constants::KEY_ROTATION_COOLDOWN_BLOCKS);
+
+            self.pending_admin_rotation = Some(propchain_traits::KeyRotationRequest {
+                old_account: caller,
+                new_account: new_admin,
+                requested_at: block,
+                effective_at,
+                confirmed: false,
+            });
+
+            self.env().emit_event(AdminRotationRequested {
+                old_admin: caller,
+                new_admin,
+                effective_at_block: effective_at,
+            });
+            Ok(())
+        }
+
+        /// Confirm a pending admin rotation after the cooldown period.
+        ///
+        /// Must be called by the nominated new admin.
+        #[ink(message)]
+        pub fn confirm_admin_rotation(&mut self) -> Result<(), FractionalError> {
+            let caller = self.env().caller();
+            let block = self.env().block_number();
+
+            let request = self
+                .pending_admin_rotation
+                .as_ref()
+                .ok_or(FractionalError::NoPendingRotation)?;
+
+            if request.new_account != caller {
+                return Err(FractionalError::RotationUnauthorized);
+            }
+            if block < request.effective_at {
+                return Err(FractionalError::KeyRotationCooldown);
+            }
+            let expiry = request
+                .effective_at
+                .saturating_add(propchain_traits::constants::KEY_ROTATION_EXPIRY_BLOCKS);
+            if block > expiry {
+                self.pending_admin_rotation = None;
+                return Err(FractionalError::RequestExpired);
+            }
+
+            let old_admin = request.old_account;
+            self.admin = caller;
+            self.pending_admin_rotation = None;
+
+            self.env().emit_event(AdminRotationConfirmed {
+                old_admin,
+                new_admin: caller,
+            });
+            Ok(())
+        }
+
+        /// Cancel a pending admin rotation.
+        ///
+        /// Either the current admin or the nominated new admin may cancel.
+        #[ink(message)]
+        pub fn cancel_admin_rotation(&mut self) -> Result<(), FractionalError> {
+            let caller = self.env().caller();
+            let request = self
+                .pending_admin_rotation
+                .as_ref()
+                .ok_or(FractionalError::NoPendingRotation)?;
+
+            if caller != request.old_account && caller != request.new_account {
+                return Err(FractionalError::RotationUnauthorized);
+            }
+
+            let old_admin = request.old_account;
+            self.pending_admin_rotation = None;
+
+            self.env().emit_event(AdminRotationCancelled {
+                old_admin,
+                cancelled_by: caller,
+            });
+            Ok(())
+        }
+
+        /// Get the pending admin rotation request, if any.
+        #[ink(message)]
+        pub fn get_pending_admin_rotation(
+            &self,
+        ) -> Option<propchain_traits::KeyRotationRequest> {
+            self.pending_admin_rotation.clone()
         }
     }
 
@@ -1283,6 +1443,7 @@ mod fractional {
             assert_eq!(Fractional::isqrt(9), 3);
             assert_eq!(Fractional::isqrt(10_000), 100);
         }
+
 
         // ── Dutch Auction Tests ──────────────────────────────────────────────
 
@@ -1568,6 +1729,238 @@ mod fractional {
             let a2 = f.get_dutch_auction(1).unwrap();
             assert_eq!(a1.shares, 50);
             assert_eq!(a2.shares, 100);
+
+        // ── Issue #493: Reentrancy guard tests ───────────────────────────────
+
+        /// Test that calling buy_shares while the guard is locked returns ReentrantCall.
+        /// We simulate this by manually locking the guard before the call.
+        #[ink::test]
+        fn test_reentrant_buy_shares_returns_error() {
+            let mut f = Fractional::new();
+            test::set_caller::<ink::env::DefaultEnvironment>(alice());
+            f.mint_shares(alice(), 1, 100);
+            f.list_shares_for_sale(1, 50, 10).unwrap();
+
+            // Manually lock the guard to simulate a reentrant call
+            f.reentrancy_guard.enter().expect("first lock should succeed");
+
+            test::set_caller::<ink::env::DefaultEnvironment>(bob());
+            // While guard is locked, buy_shares should return ReentrantCall
+            let result = f.buy_shares(alice(), 1, 10);
+            assert_eq!(
+                result,
+                Err(FractionalError::ReentrantCall),
+                "buy_shares must return ReentrantCall when guard is locked (issue #493)"
+            );
+
+            // Unlock so the guard does not stay poisoned
+            f.reentrancy_guard.exit();
+        }
+
+        /// Test that calling swap_shares_for_value while the guard is locked returns ReentrantCall.
+        #[ink::test]
+        fn test_reentrant_swap_shares_for_value_returns_error() {
+            let mut f = Fractional::new();
+            test::set_caller::<ink::env::DefaultEnvironment>(alice());
+            f.mint_shares(alice(), 1, 1000);
+
+            test::set_value_transferred::<ink::env::DefaultEnvironment>(10_000);
+            f.add_liquidity(1, 100, 0).unwrap();
+
+            // Manually lock the guard to simulate a reentrant call
+            f.reentrancy_guard.enter().expect("first lock should succeed");
+
+            let result = f.swap_shares_for_value(1, 10, 0);
+            assert_eq!(
+                result,
+                Err(FractionalError::ReentrantCall),
+                "swap_shares_for_value must return ReentrantCall when guard is locked (issue #493)"
+            );
+
+            f.reentrancy_guard.exit();
+        }
+
+        /// Test that redeem_shares is guarded and returns ReentrantCall when locked.
+        #[ink::test]
+        fn test_reentrant_redeem_shares_returns_error() {
+            let mut f = Fractional::new();
+            test::set_caller::<ink::env::DefaultEnvironment>(alice());
+            f.mint_shares(alice(), 1, 100);
+            f.set_last_price(1, 5);
+
+            f.reentrancy_guard.enter().expect("first lock should succeed");
+
+            let result = f.redeem_shares(1, 10);
+            assert_eq!(
+                result,
+                Err(FractionalError::ReentrantCall),
+                "redeem_shares must return ReentrantCall when guard is locked (issue #493)"
+            );
+
+            f.reentrancy_guard.exit();
+        }
+
+        /// Test that add_liquidity is guarded and returns ReentrantCall when locked.
+        #[ink::test]
+        fn test_reentrant_add_liquidity_returns_error() {
+            let mut f = Fractional::new();
+            test::set_caller::<ink::env::DefaultEnvironment>(alice());
+            f.mint_shares(alice(), 1, 1000);
+
+            f.reentrancy_guard.enter().expect("first lock should succeed");
+
+            test::set_value_transferred::<ink::env::DefaultEnvironment>(500);
+            let result = f.add_liquidity(1, 100, 0);
+            assert_eq!(
+                result,
+                Err(FractionalError::ReentrantCall),
+                "add_liquidity must return ReentrantCall when guard is locked (issue #493)"
+            );
+
+            f.reentrancy_guard.exit();
+        }
+
+        /// Test that remove_liquidity is guarded and returns ReentrantCall when locked.
+        #[ink::test]
+        fn test_reentrant_remove_liquidity_returns_error() {
+            let mut f = Fractional::new();
+            test::set_caller::<ink::env::DefaultEnvironment>(alice());
+            f.mint_shares(alice(), 1, 1000);
+
+            test::set_value_transferred::<ink::env::DefaultEnvironment>(1000);
+            let lp = f.add_liquidity(1, 200, 0).unwrap();
+
+            f.reentrancy_guard.enter().expect("first lock should succeed");
+
+            let result = f.remove_liquidity(1, lp, 0, 0);
+            assert_eq!(
+                result,
+                Err(FractionalError::ReentrantCall),
+                "remove_liquidity must return ReentrantCall when guard is locked (issue #493)"
+            );
+
+            f.reentrancy_guard.exit();
+        }
+
+        /// Test that after a non-reentrant call completes, the guard is unlocked
+        /// and a subsequent call succeeds normally.
+        #[ink::test]
+        fn test_guard_releases_after_successful_call() {
+            let mut f = Fractional::new();
+            test::set_caller::<ink::env::DefaultEnvironment>(alice());
+            f.mint_shares(alice(), 1, 200);
+            f.set_last_price(1, 5);
+
+            // First call: guard enters and exits normally
+            let payout1 = f.redeem_shares(1, 50).unwrap();
+            assert_eq!(payout1, 250);
+
+            // Guard should be unlocked — second call must succeed
+            let payout2 = f.redeem_shares(1, 50).unwrap();
+            assert_eq!(payout2, 250);
+
+            assert!(!f.reentrancy_guard.is_locked(), "guard must be unlocked after call");
+
         }
     }
 }
+
+    // =========================================================================
+    // ADMIN KEY ROTATION TESTS (Issue #496) — Fractional
+    // =========================================================================
+
+    #[cfg(test)]
+    mod fractional_admin_rotation_tests {
+        use super::*;
+        use ink::env::{test, DefaultEnvironment};
+
+        fn setup() -> Fractional {
+            let accounts = test::default_accounts::<DefaultEnvironment>();
+            test::set_caller::<DefaultEnvironment>(accounts.alice);
+            Fractional::new()
+        }
+
+        #[ink::test]
+        fn test_constructor_sets_caller_as_admin() {
+            let contract = setup();
+            let accounts = test::default_accounts::<DefaultEnvironment>();
+            assert_eq!(contract.get_admin(), accounts.alice);
+        }
+
+        #[ink::test]
+        fn test_admin_can_request_rotation() {
+            let mut contract = setup();
+            let accounts = test::default_accounts::<DefaultEnvironment>();
+            assert!(contract.request_admin_rotation(accounts.bob).is_ok());
+            let pending = contract.get_pending_admin_rotation();
+            assert!(pending.is_some());
+            let req = pending.unwrap();
+            assert_eq!(req.old_account, accounts.alice);
+            assert_eq!(req.new_account, accounts.bob);
+        }
+
+        #[ink::test]
+        fn test_non_admin_cannot_request_rotation() {
+            let mut contract = setup();
+            let accounts = test::default_accounts::<DefaultEnvironment>();
+            test::set_caller::<DefaultEnvironment>(accounts.bob);
+            assert_eq!(
+                contract.request_admin_rotation(accounts.charlie),
+                Err(FractionalError::Unauthorized)
+            );
+        }
+
+        #[ink::test]
+        fn test_rotation_cannot_be_confirmed_before_cooldown() {
+            let mut contract = setup();
+            let accounts = test::default_accounts::<DefaultEnvironment>();
+            contract.request_admin_rotation(accounts.bob).unwrap();
+            test::set_caller::<DefaultEnvironment>(accounts.bob);
+            // Block 0 < effective_at 14_400
+            assert_eq!(
+                contract.confirm_admin_rotation(),
+                Err(FractionalError::KeyRotationCooldown)
+            );
+        }
+
+        #[ink::test]
+        fn test_old_admin_can_cancel_rotation() {
+            let mut contract = setup();
+            let accounts = test::default_accounts::<DefaultEnvironment>();
+            contract.request_admin_rotation(accounts.bob).unwrap();
+            assert!(contract.cancel_admin_rotation().is_ok());
+            assert!(contract.get_pending_admin_rotation().is_none());
+        }
+
+        #[ink::test]
+        fn test_new_admin_can_cancel_rotation() {
+            let mut contract = setup();
+            let accounts = test::default_accounts::<DefaultEnvironment>();
+            contract.request_admin_rotation(accounts.bob).unwrap();
+            test::set_caller::<DefaultEnvironment>(accounts.bob);
+            assert!(contract.cancel_admin_rotation().is_ok());
+        }
+
+        #[ink::test]
+        fn test_unrelated_cannot_cancel() {
+            let mut contract = setup();
+            let accounts = test::default_accounts::<DefaultEnvironment>();
+            contract.request_admin_rotation(accounts.bob).unwrap();
+            test::set_caller::<DefaultEnvironment>(accounts.charlie);
+            assert_eq!(
+                contract.cancel_admin_rotation(),
+                Err(FractionalError::RotationUnauthorized)
+            );
+        }
+
+        #[ink::test]
+        fn test_duplicate_request_fails() {
+            let mut contract = setup();
+            let accounts = test::default_accounts::<DefaultEnvironment>();
+            contract.request_admin_rotation(accounts.bob).unwrap();
+            assert_eq!(
+                contract.request_admin_rotation(accounts.charlie),
+                Err(FractionalError::KeyRotationCooldown)
+            );
+        }
+    }

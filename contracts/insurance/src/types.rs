@@ -1,5 +1,25 @@
 // Data types for the insurance contract (Issue #101 - extracted from lib.rs)
 // Parametric insurance types added for Issue #249
+// Circuit breaker types added for Issue #494
+// Admin key rotation types added for Issue #496
+
+// =========================================================================
+// CIRCUIT BREAKER TYPES (Issue #494)
+// =========================================================================
+
+/// Configuration parameters for the insurance payout circuit breaker.
+#[derive(
+    Debug, Clone, PartialEq, scale::Encode, scale::Decode, ink::storage::traits::StorageLayout,
+)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub struct CircuitBreakerConfig {
+    /// Maximum amount that can be paid out in a single claim (0 = no limit)
+    pub max_single_payout: u128,
+    /// Maximum total payout allowed within one `window_seconds` rolling window per pool
+    pub max_daily_payout: u128,
+    /// Length of the rolling payout-tracking window in seconds (default: 86400 = 1 day)
+    pub window_seconds: u64,
+}
 
 /// The comparison operator used to evaluate oracle data against a trigger threshold.
 #[derive(
@@ -511,6 +531,16 @@ pub struct FraudDetectionStats {
     pub false_positive_count: u32,
     pub average_fraud_score: u32,
     pub last_update: u64,
+}
+
+/// Summary statistics for a reinsurance agreement.
+///
+/// Previously missing derives caused compile errors when this type was
+/// returned from an ink! message or stored in a Mapping (fixed bug — see #487).
+#[derive(
+    Debug, Clone, PartialEq, scale::Encode, scale::Decode, ink::storage::traits::StorageLayout,
+)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub struct ReinsuranceStats {
     pub agreement_id: u64,
     pub treaty_type: ReinsuranceTreatyType,

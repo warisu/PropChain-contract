@@ -6,6 +6,7 @@ import {
     Percent,
     ShieldCheck,
     TrendingUp,
+    Users,
 } from 'lucide-react';
 import {
     Area,
@@ -42,7 +43,6 @@ const getClaimRatio = (claimsPaid, premiumsCollected) => {
     if (!premiumsCollected) {
         return 0;
     }
-
     return (claimsPaid / premiumsCollected) * 100;
 };
 
@@ -57,23 +57,41 @@ const MetricCard = ({ icon: Icon, label, value, detail, tone }) => (
     </div>
 );
 
-const InsuranceAnalyticsDashboard = () => {
+const InsuranceAnalyticsDashboard = ({ connectedAccounts = [] }) => {
+    // State to manage the active multi-account context selector
+    const [selectedAccount, setSelectedAccount] = useState(connectedAccounts[0] || '');
     const [analytics, setAnalytics] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        // Fallback or update selection if the passed parent array drops or mutates
+        if (connectedAccounts.length > 0 && !connectedAccounts.includes(selectedAccount)) {
+            setSelectedAccount(connectedAccounts[0]);
+        }
+    }, [connectedAccounts, selectedAccount]);
 
     useEffect(() => {
         const loadAnalytics = () => {
-            fetchInsuranceAnalytics().then((result) => {
-                setAnalytics(result);
-                setLastUpdated(new Date());
-            });
+            setLoading(true);
+            // Pass the explicitly selected account string to slice contextual metrics
+            fetchInsuranceAnalytics(selectedAccount)
+                .then((result) => {
+                    setAnalytics(result);
+                    setLastUpdated(new Date());
+                    setLoading(false);
+                })
+                .catch((err) => {
+                    console.error("Failed to load insurance analytics metrics profile:", err);
+                    setLoading(false);
+                });
         };
 
         loadAnalytics();
         const interval = setInterval(loadAnalytics, 30000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedAccount]); // Re-execute every time the active account context is flipped
 
     const summary = useMemo(() => {
         if (!analytics) {
@@ -98,30 +116,54 @@ const InsuranceAnalyticsDashboard = () => {
         };
     }, [analytics]);
 
-    if (!analytics || !summary) {
+    if (!analytics || !summary || loading) {
         return (
-            <section className="rounded-lg border border-slate-700 bg-slate-900 p-6">
-                <p className="text-sm text-slate-400">Loading insurance analytics...</p>
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-6 flex items-center justify-between">
+                <p className="text-sm text-slate-400 animate-pulse">
+                    Syncing regional risk pools and account ledger mappings...
+                </p>
             </section>
         );
     }
 
     return (
         <section className="space-y-6" aria-labelledby="insurance-analytics-title">
-            <div className="flex flex-col gap-2 border-b border-slate-700 pb-4 md:flex-row md:items-end md:justify-between">
+            <div className="flex flex-col gap-4 border-b border-slate-700 pb-4 md:flex-row md:items-end md:justify-between">
                 <div>
-                    <p className="text-sm font-medium text-sky-300">Insurance</p>
+                    <p className="text-sm font-medium text-sky-300">Insurance Stack Analytics</p>
                     <h2 id="insurance-analytics-title" className="text-2xl font-bold text-white">
-                        Insurance Analytics Dashboard
+                        Risk & Portfolio Matrix Dashboard
                     </h2>
                 </div>
-                {lastUpdated && (
-                    <p className="text-xs text-slate-500">
-                        Last updated: {lastUpdated.toLocaleTimeString()}
-                    </p>
-                )}
+                
+                {/* Multi-Account Wallet Context Switcher Menu Control */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    {lastUpdated && (
+                        <p className="text-xs text-slate-500 sm:text-right pr-2">
+                            Last synced: {lastUpdated.toLocaleTimeString()}
+                        </p>
+                    )}
+                    {connectedAccounts.length > 0 && (
+                        <div className="flex items-center gap-2 rounded-md bg-slate-950 border border-slate-800 px-3 py-1.5">
+                            <Users className="h-4 w-4 text-indigo-400" aria-hidden="true" />
+                            <select
+                                id="insurance-account-view-selector"
+                                className="bg-transparent text-xs font-mono text-indigo-300 focus:outline-none cursor-pointer"
+                                value={selectedAccount}
+                                onChange={(e) => setSelectedAccount(e.target.value)}
+                            >
+                                {connectedAccounts.map((account) => (
+                                    <option key={account} value={account} className="bg-slate-950 text-white">
+                                        {account.slice(0, 6)}...{account.slice(-4)}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </div>
             </div>
 
+            {/* Metrics Breakdown Grid */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <MetricCard
                     icon={ShieldCheck}
@@ -153,12 +195,13 @@ const InsuranceAnalyticsDashboard = () => {
                 />
             </div>
 
+            {/* Charts Grid Block */}
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 <div className="rounded-lg border border-slate-700 bg-slate-900/80 p-5 xl:col-span-2">
                     <div className="mb-5 flex items-center justify-between gap-3">
                         <div>
                             <h3 className="text-base font-semibold text-white">Premiums vs Claims</h3>
-                            <p className="text-sm text-slate-400">Monthly loss-ratio trend</p>
+                            <p className="text-sm text-slate-400">Monthly loss-ratio trend context</p>
                         </div>
                         <TrendingUp className="h-5 w-5 text-emerald-300" aria-hidden="true" />
                     </div>
@@ -239,6 +282,7 @@ const InsuranceAnalyticsDashboard = () => {
                 </div>
             </div>
 
+            {/* Utilization and Exposure Details */}
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 <div className="rounded-lg border border-slate-700 bg-slate-900/80 p-5 xl:col-span-2">
                     <div className="mb-5">

@@ -529,4 +529,4 @@ main() {
     done
 }
 
-main "$
+main "$@"

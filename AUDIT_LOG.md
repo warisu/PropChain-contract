@@ -1,5 +1,5 @@
 # 🛡️ Automated Security & Mutation Audit Log
-Generated on: Tue Nov 17 09:54:21 UTC 2026
+Generated on: Wed Nov 18 09:29:16 UTC 2026
 ---
 ## 📦 Dependency License & Advisory Checks (cargo-deny)
 ```text
@@ -52,24 +52,15 @@ cargo-deny failed or flagged warnings
 
 [0m[0m[1m[31mCrate:    [0m rustls
 [0m[0m[1m[31mVersion:  [0m 0.21.12
-[0m[0m[1m[31mTitle:    [0m Unauthenticated ServerHello can downgrade later connections to classical key exchange
+[0m[0m[1m[31mTitle:    [0m `Debug` impls for client session values expose TLS secrets
 [0m[0m[1m[31mDate:     [0m 2026-10-14
-[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0349
-[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0349
-[0m[0m[1m[31mSeverity: [0m 3.7 (low)
+[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0346
+[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0346
+[0m[0m[1m[31mSeverity: [0m 4 (medium)
 [0m[0m[1m[31mSolution: [0m Upgrade to >=0.23.46
 
 [0m[0m[1m[31mCrate:    [0m rustls
 [0m[0m[1m[31mVersion:  [0m 0.21.12
-[0m[0m[1m[31mTitle:    [0m `Debug` impls for client session values expose TLS secrets
-[0m[0m[1m[31mDate:     [0m 2026-10-14
-[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0346
-[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0346
-[0m[0m[1m[31mSeverity: [0m 4 (medium)
-[0m[0m[1m[31mSolution: [0m Upgrade to >=0.23.46
-
-[0m[0m[1m[31mCrate:    [0m rustls
-[0m[0m[1m[31mVersion:  [0m 0.22.4
 [0m[0m[1m[31mTitle:    [0m Unauthenticated ServerHello can downgrade later connections to classical key exchange
 [0m[0m[1m[31mDate:     [0m 2026-10-14
 [0m[0m[1m[31mID:       [0m RUSTSEC-2026-0349
@@ -84,6 +75,15 @@ cargo-deny failed or flagged warnings
 [0m[0m[1m[31mID:       [0m RUSTSEC-2026-0346
 [0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0346
 [0m[0m[1m[31mSeverity: [0m 4 (medium)
+[0m[0m[1m[31mSolution: [0m Upgrade to >=0.23.46
+
+[0m[0m[1m[31mCrate:    [0m rustls
+[0m[0m[1m[31mVersion:  [0m 0.22.4
+[0m[0m[1m[31mTitle:    [0m Unauthenticated ServerHello can downgrade later connections to classical key exchange
+[0m[0m[1m[31mDate:     [0m 2026-10-14
+[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0349
+[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0349
+[0m[0m[1m[31mSeverity: [0m 3.7 (low)
 [0m[0m[1m[31mSolution: [0m Upgrade to >=0.23.46
 
 [0m[0m[1m[31mCrate:    [0m rustls-webpki
@@ -101,14 +101,6 @@ cargo-deny failed or flagged warnings
 [0m[0m[1m[31mID:       [0m RUSTSEC-2026-0382
 [0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0382
 [0m[0m[1m[31mSolution: [0m Upgrade to >=0.103.16, <0.104.0-alpha.1 OR >=0.104.0-alpha.8
-
-[0m[0m[1m[31mCrate:    [0m rustls-webpki
-[0m[0m[1m[31mVersion:  [0m 0.101.7
-[0m[0m[1m[31mTitle:    [0m Name constraints for URI names were incorrectly accepted
-[0m[0m[1m[31mDate:     [0m 2026-04-14
-[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0098
-[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0098
-[0m[0m[1m[31mSolution: [0m Upgrade to >=0.103.12, <0.104.0-alpha.1 OR >=0.104.0-alpha.6
 
 [0m[0m[1m[31mCrate:    [0m rustls-webpki
 [0m[0m[1m[31mVersion:  [0m 0.101.7
@@ -119,6 +111,14 @@ cargo-deny failed or flagged warnings
 [0m[0m[1m[31mSolution: [0m Upgrade to >=0.103.12, <0.104.0-alpha.1 OR >=0.104.0-alpha.6
 
 [0m[0m[1m[31mCrate:    [0m rustls-webpki
+[0m[0m[1m[31mVersion:  [0m 0.101.7
+[0m[0m[1m[31mTitle:    [0m Name constraints for URI names were incorrectly accepted
+[0m[0m[1m[31mDate:     [0m 2026-04-14
+[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0098
+[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0098
+[0m[0m[1m[31mSolution: [0m Upgrade to >=0.103.12, <0.104.0-alpha.1 OR >=0.104.0-alpha.6
+
+[0m[0m[1m[31mCrate:    [0m rustls-webpki
 [0m[0m[1m[31mVersion:  [0m 0.102.8
 [0m[0m[1m[31mTitle:    [0m Reachable panic in certificate revocation list parsing
 [0m[0m[1m[31mDate:     [0m 2026-04-22
@@ -133,14 +133,6 @@ cargo-deny failed or flagged warnings
 [0m[0m[1m[31mID:       [0m RUSTSEC-2026-0382
 [0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0382
 [0m[0m[1m[31mSolution: [0m Upgrade to >=0.103.16, <0.104.0-alpha.1 OR >=0.104.0-alpha.8
-
-[0m[0m[1m[31mCrate:    [0m rustls-webpki
-[0m[0m[1m[31mVersion:  [0m 0.102.8
-[0m[0m[1m[31mTitle:    [0m Name constraints for URI names were incorrectly accepted
-[0m[0m[1m[31mDate:     [0m 2026-04-14
-[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0098
-[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0098
-[0m[0m[1m[31mSolution: [0m Upgrade to >=0.103.12, <0.104.0-alpha.1 OR >=0.104.0-alpha.6
 
 [0m[0m[1m[31mCrate:    [0m rustls-webpki
 [0m[0m[1m[31mVersion:  [0m 0.102.8
@@ -157,6 +149,14 @@ cargo-deny failed or flagged warnings
 [0m[0m[1m[31mID:       [0m RUSTSEC-2026-0049
 [0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0049
 [0m[0m[1m[31mSolution: [0m Upgrade to >=0.103.10
+
+[0m[0m[1m[31mCrate:    [0m rustls-webpki
+[0m[0m[1m[31mVersion:  [0m 0.102.8
+[0m[0m[1m[31mTitle:    [0m Name constraints for URI names were incorrectly accepted
+[0m[0m[1m[31mDate:     [0m 2026-04-14
+[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0098
+[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0098
+[0m[0m[1m[31mSolution: [0m Upgrade to >=0.103.12, <0.104.0-alpha.1 OR >=0.104.0-alpha.6
 
 [0m[0m[1m[31mCrate:    [0m ruzstd
 [0m[0m[1m[31mVersion:  [0m 0.5.0
@@ -194,12 +194,20 @@ cargo-deny failed or flagged warnings
 
 [0m[0m[1m[31mCrate:    [0m zip
 [0m[0m[1m[31mVersion:  [0m 2.3.0
-[0m[0m[1m[31mTitle:    [0m ZipStreamReader::extract() and ZipArchive::extract() apply Unix permissions through symlinks without confining the target
-[0m[0m[1m[31mDate:     [0m 2026-10-10
-[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0369
-[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0369
-[0m[0m[1m[31mSeverity: [0m 9.1 (critical)
+[0m[0m[1m[31mTitle:    [0m  Insecure Preservation of SUID/SGID Bits during ZIP Extraction Leading to Potential Privilege Escalation
+[0m[0m[1m[31mDate:     [0m 2026-10-09
+[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0367
+[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0367
+[0m[0m[1m[31mSeverity: [0m 7.3 (high)
 [0m[0m[1m[31mSolution: [0m Upgrade to >=9.0.0
+
+[0m[0m[1m[31mCrate:    [0m zip
+[0m[0m[1m[31mVersion:  [0m 2.3.0
+[0m[0m[1m[31mTitle:    [0m `ZipStreamReader` extracts entries under local-header names that can differ from the central directory
+[0m[0m[1m[31mDate:     [0m 2026-10-17
+[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0548
+[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0548
+[0m[0m[1m[31mSolution: [0m Upgrade to >=9.0.5
 
 [0m[0m[1m[31mCrate:    [0m zip
 [0m[0m[1m[31mVersion:  [0m 2.3.0
@@ -211,12 +219,37 @@ cargo-deny failed or flagged warnings
 
 [0m[0m[1m[31mCrate:    [0m zip
 [0m[0m[1m[31mVersion:  [0m 2.3.0
-[0m[0m[1m[31mTitle:    [0m  Insecure Preservation of SUID/SGID Bits during ZIP Extraction Leading to Potential Privilege Escalation
-[0m[0m[1m[31mDate:     [0m 2026-10-09
-[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0367
-[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0367
-[0m[0m[1m[31mSeverity: [0m 7.3 (high)
+[0m[0m[1m[31mTitle:    [0m ZipStreamReader::extract() and ZipArchive::extract() apply Unix permissions through symlinks without confining the target
+[0m[0m[1m[31mDate:     [0m 2026-10-10
+[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0369
+[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0369
+[0m[0m[1m[31mSeverity: [0m 9.1 (critical)
 [0m[0m[1m[31mSolution: [0m Upgrade to >=9.0.0
+
+[0m[0m[1m[31mCrate:    [0m zip
+[0m[0m[1m[31mVersion:  [0m 2.3.0
+[0m[0m[1m[31mTitle:    [0m AES entries returned without checking their authentication code when the data ends early or is empty
+[0m[0m[1m[31mDate:     [0m 2026-10-22
+[0m[0m[1m[31mID:       [0m RUSTSEC-2026-0545
+[0m[0m[1m[31mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0545
+[0m[0m[1m[31mSeverity: [0m 6.5 (medium)
+[0m[0m[1m[31mSolution: [0m Upgrade to >=9.0.0
+
+[0m[0m[1m[33mCrate:    [0m chrono
+[0m[0m[1m[33mVersion:  [0m 0.4.44
+[0m[0m[1m[33mWarning:  [0m unmaintained
+[0m[0m[1m[33mTitle:    [0m chrono is unmaintained
+[0m[0m[1m[33mDate:     [0m 2026-09-14
+[0m[0m[1m[33mID:       [0m RUSTSEC-2026-0543
+[0m[0m[1m[33mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0543
+
+[0m[0m[1m[33mCrate:    [0m humantime
+[0m[0m[1m[33mVersion:  [0m 2.3.0
+[0m[0m[1m[33mWarning:  [0m unmaintained
+[0m[0m[1m[33mTitle:    [0m humantime is unmaintained
+[0m[0m[1m[33mDate:     [0m 2026-09-14
+[0m[0m[1m[33mID:       [0m RUSTSEC-2026-0542
+[0m[0m[1m[33mURL:      [0m https://rustsec.org/advisories/RUSTSEC-2026-0542
 
 [0m[0m[1m[33mCrate:    [0m instant
 [0m[0m[1m[33mVersion:  [0m 0.1.13
